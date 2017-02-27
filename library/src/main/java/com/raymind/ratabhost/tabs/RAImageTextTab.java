@@ -1,10 +1,8 @@
 package com.raymind.ratabhost.tabs;
 
-import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
-import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
@@ -19,31 +17,29 @@ import com.raymind.ratabhost.R;
  */
 public class RAImageTextTab extends RATab
 {
-	private ImageView mImageView;
-
-	private TextView mTextView;
-
-	private ColorStateList mTextColor;
-
-	private ColorStateList mImageColorFilter;
-
-	private float mTextSize;
-
-	private int mTextSizeUnit;
-
 	private Drawable mDrawable;
-
+	private ColorStateList mImageColorFilter;
+	private ImageView mImageView;
+	private ColorStateList mTextColor;
+	private float mTextSize;
+	private int mTextSizeUnit;
+	private TextView mTextView;
 	private float tabImageViewWidth;
 
-	public RAImageTextTab(final Context context, final OnTabTouchListener touchListener)
+	public RAImageTextTab(Context context)
 	{
-		super(context, touchListener, R.layout.layout_tab_image);
+		this(context, null);
+	}
+
+	public RAImageTextTab(Context context, OnTabTouchListener touchListener)
+	{
+		super(context, touchListener, R.layout.layout_tab_image_text);
 
 		mImageView = (ImageView) getView().findViewById(R.id.iv_tab_icon);
-		setImageView_ColorFilter(getImageColorFilter());
+		setImageColorFilter(getAccentColor());
 
 		mTextView = (TextView) getView().findViewById(R.id.tv_tab_text);
-		setTextView_TextColor(getTextColor());
+		setTextColor(getAccentColor());
 
 		tabImageViewWidth = context.getResources().getDimension(R.dimen.tab_image_view_width);
 	}
@@ -65,35 +61,31 @@ public class RAImageTextTab extends RATab
 		{
 			return getImageTextTab();
 		}
-
-		mImageColorFilter = (color != null) ? color : ColorStateList.valueOf(getAccentColor());
-
+		if (color == null)
+		{
+			color = ColorStateList.valueOf(getAccentColor());
+		}
+		mImageColorFilter = color;
 		setImageView_ColorFilter(getImageColorFilter());
-
 		return getImageTextTab();
 	}
-
 
 	public RAImageTextTab setImageDrawable(Drawable drawable)
 	{
 		mDrawable = drawable;
-
 		mImageView.setImageDrawable(mDrawable);
-
 		setImageView_ColorFilter(getImageColorFilter());
-
 		return getImageTextTab();
 	}
 
 	private void setImageView_ColorFilter(@ColorInt int color)
 	{
-		if (this.mImageView != null)
+		if (mImageView != null)
 		{
-			this.mImageView.setColorFilter(color);
+			mImageView.setColorFilter(color);
 		}
 	}
 
-	@SuppressLint({"NewApi"})
 	private void setImageAlpha(int alpha)
 	{
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN)
@@ -123,11 +115,12 @@ public class RAImageTextTab extends RATab
 		{
 			return getImageTextTab();
 		}
-
-		mTextColor = (color != null) ? color : ColorStateList.valueOf(getAccentColor());
-
+		if (color == null)
+		{
+			color = ColorStateList.valueOf(getAccentColor());
+		}
+		mTextColor = color;
 		setTextView_TextColor(getTextColor());
-
 		return getImageTextTab();
 	}
 
@@ -137,12 +130,9 @@ public class RAImageTextTab extends RATab
 		{
 			return getImageTextTab();
 		}
-
 		mTextSizeUnit = unit;
 		mTextSize = size;
-
 		setTextView_TextSize(mTextSizeUnit, mTextSize);
-
 		return getImageTextTab();
 	}
 
@@ -184,8 +174,7 @@ public class RAImageTextTab extends RATab
 	{
 		String textString = mTextView.getText().toString();
 		Rect bounds = new Rect();
-		Paint textPaint = mTextView.getPaint();
-		textPaint.getTextBounds(textString, 0, textString.length(), bounds);
+		mTextView.getPaint().getTextBounds(textString, 0, textString.length(), bounds);
 		return bounds.width();
 	}
 
@@ -194,13 +183,11 @@ public class RAImageTextTab extends RATab
 		return this;
 	}
 
-	@Override
 	protected RATab getTab()
 	{
 		return getImageTextTab();
 	}
 
-	@Override
 	protected void unselectTab()
 	{
 		setImageAlpha(getDisableStateColorAlpha());
@@ -208,26 +195,16 @@ public class RAImageTextTab extends RATab
 		setTextView_TextColor(Color.argb(getDisableStateColorAlpha(), Color.red(color), Color.green(color), Color.blue(color)));
 	}
 
-	@Override
 	protected void selectTab()
 	{
 		setImageAlpha(0xFF);
-		int color = getTextColor();
-		setTextView_TextColor(color);
+		setTextView_TextColor(getTextColor());
 	}
 
-	@Override
 	protected float getTabMinWidth()
 	{
-		final float minImageWidth = tabImageViewWidth;
-		final float minTextWidth = getTextLenght();
+		float minImageWidth = tabImageViewWidth;
+		float minTextWidth = (float) getTextLenght();
 		return minImageWidth > minTextWidth ? minImageWidth : minTextWidth;
-	}
-
-	@Override
-	protected void setTabAccentColor(final ColorStateList color)
-	{
-		setImageColorFilter(color);
-		setTextColor(color);
 	}
 }

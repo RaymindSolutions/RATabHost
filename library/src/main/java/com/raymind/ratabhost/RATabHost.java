@@ -6,10 +6,11 @@ import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
 import android.graphics.Point;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
+import android.os.Handler;
 import android.support.annotation.ColorInt;
 import android.util.AttributeSet;
-import android.util.TypedValue;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -32,34 +33,44 @@ public class RATabHost extends FrameLayout
 {
 	public interface OnTabSelectedListener
 	{
+		void onTabReselected(RATab tab);
+
 		void onTabSelected(RATab tab);
+
+		void onTabUnselected(RATab tab);
 	}
 
-	private static int sSelectedTab;
-	private static int sSpaceBetweenTabs;
+	private static boolean sIsTabletLayouts;
 	private static int sNavigationViewWidth;
 	private static int sScrollviewLeftRightPadding;
-	private static boolean sIsTabletLayouts;
+	private static int sSelectedTabPosition;
+	private static int sSpaceBetweenTabs;
 
 	private Context mContext;
-	private HorizontalScrollView mScrollTabView;
+	private List<RATab> mTabList;
+
+	private boolean mScrollable;
+	private boolean mAutoEnableScrolling;
+	private boolean mEnableScrolling;
+	private boolean mEnableTabSelector;
+	private boolean mEnabledTabletTabNavigation;
+
+	private float mTabTextSize;
+	private int mTabTextSizeUnit;
+	private int mTabDisableStateColorAlpha;
+
 	private LinearLayout mTabHolder;
+	private HorizontalScrollView mScrollTabView;
 	private ImageButton mNavigationNextBtn;
 	private ImageButton mNavigationPreviusBtn;
 
-	private boolean mScrollable;
-	private List<RATab> mTabList;
-	private OnTabSelectedListener mTabSelectedListener;
-
-	private boolean isTab = true;
-
-	private int mTabDisableStateColorAlpha;
-	private ColorStateList mTabAccentColor;
+	private ColorStateList mTabSelectorColor;
 	private ColorStateList mTabPrimaryColor;
+	private ColorStateList mTabAccentColor;
 	private ColorStateList mTabTextColor;
 	private ColorStateList mTabImageColorFilter;
-	private int mTabTextSizeUnit;
-	private float mTabTextSize;
+
+	private OnTabSelectedListener mTabSelectedListener;
 
 	public RATabHost(final Context context)
 	{
@@ -84,59 +95,48 @@ public class RATabHost extends FrameLayout
 		init(context, attrs, defStyleAttr);
 	}
 
-	private void init(final Context context, final AttributeSet attrs, final int defStyleAttr)
+	private void init(Context context, AttributeSet attrs, int defStyleAttr)
 	{
 		mContext = context;
-		LayoutInflater.from(mContext).inflate(R.layout.layout_tab_host, this);
 
-		mScrollTabView = (HorizontalScrollView) findViewById(R.id.hsv_tabhost_scrollview);
-		mTabHolder = (LinearLayout) findViewById(R.id.ll_tabhost_tabholder);
-
-		mNavigationNextBtn = (ImageButton) findViewById(R.id.ib_tabhost_navigation_next);
-		mNavigationPreviusBtn = (ImageButton) findViewById(R.id.ib_tabhost_navigation_previous);
+		initView(mContext);
 
 		mNavigationNextBtn.setOnClickListener(mOnNavigationButtonClickListener);
 		mNavigationPreviusBtn.setOnClickListener(mOnNavigationButtonClickListener);
 
-		mTabList = new LinkedList<>();
+		mTabList = new LinkedList();
 
 		Resources resources = getResources();
 
-		sIsTabletLayouts = !(resources.getBoolean(R.bool.isPhoneLayout));
+		sIsTabletLayouts = true;
+		if (resources.getBoolean(R.bool.isPhoneLayout))
+		{
+			sIsTabletLayouts = false;
+		}
+
 		if (sIsTabletLayouts)
 		{
 			sNavigationViewWidth = round(resources.getDimension(R.dimen.tabhost_navigation_previous_next_view_width));
 		}
+
 		sSpaceBetweenTabs = round(resources.getDimension(R.dimen.tabhost_space_between_tabs)) * 2;
 		sScrollviewLeftRightPadding = round(resources.getDimension(R.dimen.tabhost_scrollview_left_right_padding));
-		sSelectedTab = -1;
+		sSelectedTabPosition = -1;
 
-		int tabTextSizeInPixel = 0;
-		if (attrs != null)
-		{
-			TypedArray a = mContext.getTheme().obtainStyledAttributes(attrs, R.styleable.RATabHost, 0, 0);
+		setStyledAttributes(mContext, attrs);
 
-			try
-			{
-				setTabDisableStateColorAlpha(a.getInteger(R.styleable.RATabHost_raTabDisableStateColorAlpha, RATab.DEFAULT_DISABLE_TAB_ALPHA));
-				setTabPrimaryColor(a.getColor(R.styleable.RATabHost_raTabPrimaryColor, RATab.DEFAULT_TAB_PRIMARY_COLOR));
-				setTabAccentColor(a.getColor(R.styleable.RATabHost_raTabAccentColor, RATab.DEFAULT_TAB_ACCENT_COLOR));
-				setTabTextColor(a.getColor(R.styleable.RATabHost_raTabTextColor, RATextTab.DEFAULT_TAB_TEXT_COLOR));
-				setTabImageColorFilter(a.getColor(R.styleable.RATabHost_raTabImageColorFilter, RAImageTab.DEFAULT_TAB_IMAGE_COLOR_FILTER));
+		setScrollable(isEnableScrolling());
+	}
 
-				tabTextSizeInPixel = a.getDimensionPixelSize(R.styleable.RATabHost_raTabTextSize, 0);
-			}
-			finally
-			{
-				a.recycle();
-			}
-		}
-
-		if (tabTextSizeInPixel > 0)
-		{
-			setTabTextSize(TypedValue.COMPLEX_UNIT_PX, tabTextSizeInPixel);
-		}
-		setScrollable(false);
+	public RAImageTab newTab(Drawable drawable)
+	{
+		RAImageTab tab = new RAImageTab(mContext);
+		tab.setAccentColor(getTabAccentColor());
+		tab.setPrimaryColor(getTabPrimaryColor());
+		tab.setDisableStateColorAlpha(getTabDisableStateColorAlpha());
+		tab.setImageDrawable(drawable);
+		tab.setImageColorFilter(getTabImageColorFilter());
+		return tab;
 	}
 
 	public RATextTab newTab(String text)
@@ -147,11 +147,81 @@ public class RATabHost extends FrameLayout
 		tab.setDisableStateColorAlpha(getTabDisableStateColorAlpha());
 		tab.setText(text);
 		tab.setTextColor(getTabTextColor());
-		if (mTabTextSize > 0)
+		if (mTabTextSize > 0.0f)
 		{
 			tab.setTextSize(mTabTextSizeUnit, mTabTextSize);
 		}
 		return tab;
+	}
+
+	public RAImageTextTab newTab(String text, Drawable drawable)
+	{
+		RAImageTextTab tab = new RAImageTextTab(mContext);
+		tab.setAccentColor(getTabAccentColor());
+		tab.setPrimaryColor(getTabPrimaryColor());
+		tab.setDisableStateColorAlpha(getTabDisableStateColorAlpha());
+		tab.setImageDrawable(drawable);
+		tab.setImageColorFilter(getTabImageColorFilter());
+		tab.setText(text);
+		tab.setTextColor(getTabTextColor());
+		if (mTabTextSize > 0.0f)
+		{
+			tab.setTextSize(mTabTextSizeUnit, mTabTextSize);
+		}
+		return tab;
+	}
+
+	public boolean isAutoEnableScrolling()
+	{
+		return mAutoEnableScrolling;
+	}
+
+	public void setAutoEnableScrolling(boolean autoEnableScrolling)
+	{
+		mAutoEnableScrolling = autoEnableScrolling;
+		if (mTabList.size() > 0)
+		{
+			refreshView();
+		}
+	}
+
+	public boolean isEnableScrolling()
+	{
+		return mEnableScrolling;
+	}
+
+	public void setEnableScrolling(boolean enableScrolling)
+	{
+		mEnableScrolling = enableScrolling;
+		if (mTabList.size() > 0)
+		{
+			refreshView();
+		}
+	}
+
+	private boolean isEnabledTabletTabNavigation()
+	{
+		return mEnabledTabletTabNavigation;
+	}
+
+	public void setEnabledTabletTabNavigation(boolean enabledTabletTabNavigation)
+	{
+		mEnabledTabletTabNavigation = enabledTabletTabNavigation;
+	}
+
+	private boolean isEnableTabSelector()
+	{
+		return mEnableTabSelector;
+	}
+
+	public RATabHost setEnableTabSelector(boolean disableTabSelector)
+	{
+		mEnableTabSelector = disableTabSelector;
+		for (RATab tab : mTabList)
+		{
+			tab.setEnableSelector(isEnableTabSelector());
+		}
+		return this;
 	}
 
 	private int getTabDisableStateColorAlpha()
@@ -162,12 +232,10 @@ public class RATabHost extends FrameLayout
 	public RATabHost setTabDisableStateColorAlpha(int alpha)
 	{
 		mTabDisableStateColorAlpha = alpha;
-
 		for (RATab tab : mTabList)
 		{
 			tab.setDisableStateColorAlpha(getTabDisableStateColorAlpha());
 		}
-
 		return this;
 	}
 
@@ -184,18 +252,14 @@ public class RATabHost extends FrameLayout
 
 	public RATabHost setTabAccentColor(ColorStateList color)
 	{
-		if (mTabAccentColor != null && mTabAccentColor.equals(color))
+		if (mTabAccentColor == null || !mTabAccentColor.equals(color))
 		{
-			return this;
+			mTabAccentColor = (color != null) ? color : ColorStateList.valueOf(RATab.DEFAULT_TAB_ACCENT_COLOR);
+			for (RATab tab : mTabList)
+			{
+				tab.setAccentColor(getTabAccentColor());
+			}
 		}
-
-		mTabAccentColor = (color != null) ? color : ColorStateList.valueOf(RATab.DEFAULT_TAB_ACCENT_COLOR);
-
-		for (RATab tab : mTabList)
-		{
-			tab.setAccentColor(getTabAccentColor());
-		}
-
 		return this;
 	}
 
@@ -212,23 +276,43 @@ public class RATabHost extends FrameLayout
 
 	public RATabHost setTabPrimaryColor(ColorStateList color)
 	{
-		if (mTabPrimaryColor != null && mTabPrimaryColor.equals(color))
+		if (mTabPrimaryColor == null || !mTabPrimaryColor.equals(color))
 		{
-			return this;
+			mTabPrimaryColor = (color != null) ? color : ColorStateList.valueOf(RATab.DEFAULT_TAB_PRIMARY_COLOR);
+			for (RATab tab : mTabList)
+			{
+				tab.setPrimaryColor(getTabPrimaryColor());
+			}
 		}
-
-		mTabPrimaryColor = (color != null) ? color : ColorStateList.valueOf(RATab.DEFAULT_TAB_PRIMARY_COLOR);
-
-		for (RATab tab : mTabList)
-		{
-			tab.setPrimaryColor(getTabPrimaryColor());
-		}
-
 		return this;
 	}
 
 	@ColorInt
-	public int getTabTextColor()
+	private int getTabSelectorColor()
+	{
+		return mTabSelectorColor.getDefaultColor();
+	}
+
+	public RATabHost setTabSelectorColor(@ColorInt int color)
+	{
+		return setTabSelectorColor(ColorStateList.valueOf(color));
+	}
+
+	public RATabHost setTabSelectorColor(ColorStateList color)
+	{
+		if (mTabSelectorColor == null || !mTabSelectorColor.equals(color))
+		{
+			mTabSelectorColor = (color != null) ? color : ColorStateList.valueOf(getTabAccentColor());
+			for (RATab tab : mTabList)
+			{
+				tab.setSelectorColor(getTabSelectorColor());
+			}
+		}
+		return this;
+	}
+
+	@ColorInt
+	private int getTabTextColor()
 	{
 		return mTabTextColor.getDefaultColor();
 	}
@@ -240,27 +324,21 @@ public class RATabHost extends FrameLayout
 
 	public RATabHost setTabTextColor(ColorStateList color)
 	{
-		if (mTabTextColor != null && mTabTextColor.equals(color))
+		if (mTabTextColor == null || !mTabTextColor.equals(color))
 		{
-			return this;
-		}
-
-		mTabTextColor = (color != null) ? color : ColorStateList.valueOf(getTabAccentColor());
-
-		for (RATab tab : mTabList)
-		{
-			if (tab instanceof RATextTab)
+			mTabTextColor = (color != null) ? color : ColorStateList.valueOf(getTabAccentColor());
+			for (RATab tab : mTabList)
 			{
-				RATextTab textTab = (RATextTab) tab;
-				textTab.setTextColor(getTabTextColor());
-			}
-			else if (tab instanceof RAImageTextTab)
-			{
-				RAImageTextTab imageTextTab = (RAImageTextTab) tab;
-				imageTextTab.setTextColor(getTabTextColor());
+				if (tab instanceof RATextTab)
+				{
+					((RATextTab) tab).setTextColor(getTabTextColor());
+				}
+				else if (tab instanceof RAImageTextTab)
+				{
+					((RAImageTextTab) tab).setTextColor(getTabTextColor());
+				}
 			}
 		}
-
 		return this;
 	}
 
@@ -277,156 +355,71 @@ public class RATabHost extends FrameLayout
 
 	public RATabHost setImageColorFilter(ColorStateList color)
 	{
-		if (mTabImageColorFilter != null && mTabImageColorFilter.equals(color))
+		if (mTabImageColorFilter == null || !mTabImageColorFilter.equals(color))
 		{
-			return this;
-		}
-
-		mTabImageColorFilter = (color != null) ? color : ColorStateList.valueOf(getTabAccentColor());
-
-		for (RATab tab : mTabList)
-		{
-			if (tab instanceof RAImageTab)
+			mTabImageColorFilter = (color != null) ? color : ColorStateList.valueOf(getTabAccentColor());;
+			for (RATab tab : mTabList)
 			{
-				RAImageTab imageTab = (RAImageTab) tab;
-				imageTab.setImageColorFilter(getTabImageColorFilter());
-			}
-			else if (tab instanceof RAImageTextTab)
-			{
-				RAImageTextTab imageTextTab = (RAImageTextTab) tab;
-				imageTextTab.setImageColorFilter(getTabImageColorFilter());
+				if (tab instanceof RAImageTab)
+				{
+					((RAImageTab) tab).setImageColorFilter(getTabImageColorFilter());
+				}
+				else if (tab instanceof RAImageTextTab)
+				{
+					((RAImageTextTab) tab).setImageColorFilter(getTabImageColorFilter());
+				}
 			}
 		}
-
 		return this;
 	}
 
 	public RATabHost setTabTextSize(int unit, float size)
 	{
-		if (mTabTextSizeUnit == unit && mTabTextSize == size)
+		if (!(mTabTextSizeUnit == unit && mTabTextSize == size))
 		{
-			return this;
-		}
-
-		mTabTextSizeUnit = unit;
-		mTabTextSize = size;
-
-		for (RATab tab : mTabList)
-		{
-			if (tab instanceof RATextTab)
+			mTabTextSizeUnit = unit;
+			mTabTextSize = size;
+			for (RATab tab : mTabList)
 			{
-				RATextTab textTab = (RATextTab) tab;
-				textTab.setTextSize(mTabTextSizeUnit, mTabTextSize);
-			}
-			else if (tab instanceof RAImageTextTab)
-			{
-				RAImageTextTab imageTextTab = (RAImageTextTab) tab;
-				imageTextTab.setTextSize(mTabTextSizeUnit, mTabTextSize);
+				if (tab instanceof RATextTab)
+				{
+					((RATextTab) tab).setTextSize(mTabTextSizeUnit, mTabTextSize);
+				}
+				else if (tab instanceof RAImageTextTab)
+				{
+					((RAImageTextTab) tab).setTextSize(mTabTextSizeUnit, mTabTextSize);
+				}
 			}
 		}
-
 		return this;
 	}
 
 	public void removeAllTabs()
 	{
 		mTabList.clear();
-		notifyDataSetChanged();
+		mTabHolder.removeAllViews();
 	}
 
-	public void setOnTabSelectedListener(final OnTabSelectedListener tabSelectedListener)
+	public void setOnTabSelectedListener(OnTabSelectedListener tabSelectedListener)
 	{
 		mTabSelectedListener = tabSelectedListener;
-	}
-
-	public boolean isScrollable()
-	{
-		return mScrollable;
-	}
-
-	public RATabHost setScrollable(final boolean scrollable)
-	{
-		if (this.mScrollable != scrollable)
-		{
-			this.mScrollable = scrollable;
-
-			if (isScrollable() && sIsTabletLayouts && !isTab)
-			{
-				mNavigationPreviusBtn.setVisibility(VISIBLE);
-				mNavigationNextBtn.setVisibility(VISIBLE);
-
-				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN)
-				{
-					mNavigationPreviusBtn.setBackground(this.getBackground());
-					mNavigationNextBtn.setBackground(this.getBackground());
-				}
-				else
-				{
-					mNavigationPreviusBtn.setBackgroundColor(this.getDrawingCacheBackgroundColor());
-					mNavigationNextBtn.setBackgroundColor(this.getDrawingCacheBackgroundColor());
-				}
-			}
-			else
-			{
-				mNavigationPreviusBtn.setVisibility(GONE);
-				mNavigationNextBtn.setVisibility(GONE);
-			}
-
-			setScrollViewPadding();
-		}
-		return this;
 	}
 
 	public RATabHost addTab(RATab tab)
 	{
 		tab.setPosition(mTabList.size());
+		if (sSelectedTabPosition == tab.getPosition())
+		{
+			tab.select();
+		}
 		tab.addTabTouchListener(mOnTabTouchListener);
 		mTabList.add(tab);
-
-		if (mTabList.size() == 4)
-		{
-			setScrollable(true);
-		}
-
-		notifyDataSetChanged();
 		return this;
 	}
 
-	public void setSelectTab(int tabIndex)
+	public void setSelectTab(int tabPosition)
 	{
-		if (tabIndex >= 0 && tabIndex < mTabList.size())
-		{
-			for (RATab tab : mTabList)
-			{
-				if (tab.getPosition() == tabIndex)
-				{
-					if (isTab)
-					{
-						tab.select();
-					}
-					else
-					{
-						tab.unselect();
-					}
-					if (sSelectedTab != tabIndex)
-					{
-						notifyTabSelection(tab);
-
-					}
-				}
-				else
-				{
-					tab.unselect();
-				}
-			}
-
-			if (isScrollable())
-			{
-				scrollTo(tabIndex);
-			}
-		}
-
-		sSelectedTab = tabIndex;
+		setSelectTab(tabPosition, true);
 	}
 
 	public RATab getCurrentSelectedTab()
@@ -446,31 +439,92 @@ public class RATabHost extends FrameLayout
 		if (mTabHolder != null)
 		{
 			mTabHolder.removeAllViews();
-
-			if (isScrollable())
+			if (isAutoEnableScrolling())
 			{
-				for (RATab tab : mTabList)
+				int width = getViewWidth();
+				setScrollable(canScroll(width));
+				if (isScrollable() || width < 0)
 				{
-					int tabWidth = getTabMinWidth(tab);
-					mTabHolder.addView(tab.getView(), new LinearLayout.LayoutParams(tabWidth, LayoutParams.MATCH_PARENT));
+					addTabs();
+				}
+				else
+				{
+					addTabs(width);
 				}
 			}
 			else
 			{
-				LinearLayout.LayoutParams params;
-				int tabWidth = this.getWidth() / mTabList.size();
-				params = new LinearLayout.LayoutParams(tabWidth, LayoutParams.MATCH_PARENT);
-				for (RATab tab : mTabList)
-				{
-					mTabHolder.addView(tab.getView(), params);
-				}
+				addTabs();
+				mScrollTabView.setSmoothScrollingEnabled(isEnableScrolling());
 			}
 		}
-
-		setSelectTab(sSelectedTab);
+		setSelectTab(sSelectedTabPosition, false);
 	}
 
-	@Override
+	private void initView(Context context)
+	{
+		LayoutInflater.from(context).inflate(R.layout.layout_tab_host, this);
+
+		mScrollTabView = (HorizontalScrollView) findViewById(R.id.hsv_tabhost_scrollview);
+		mTabHolder = (LinearLayout) findViewById(R.id.ll_tabhost_tabholder);
+		mNavigationNextBtn = (ImageButton) findViewById(R.id.ib_tabhost_navigation_next);
+		mNavigationPreviusBtn = (ImageButton) findViewById(R.id.ib_tabhost_navigation_previous);
+	}
+
+	private void setStyledAttributes(Context context, AttributeSet attrs)
+	{
+		boolean isEnabledScrollBar = false;
+		int tabTextSizeInPixel = 0;
+
+		if (attrs != null)
+		{
+			TypedArray a = context.getTheme().obtainStyledAttributes(attrs, R.styleable.RATabHost, 0, 0);
+			try
+			{
+				setAutoEnableScrolling(a.getBoolean(R.styleable.RATabHost_raAutoEnableScrolling, true));
+				setEnableScrolling(a.getBoolean(R.styleable.RATabHost_raEnableScrolling, false));
+				setEnabledTabletTabNavigation(a.getBoolean(R.styleable.RATabHost_raEnableTabletTabNavigation, true));
+				setEnableTabSelector(a.getBoolean(R.styleable.RATabHost_raEnableTabSelector, true));
+				isEnabledScrollBar = a.getBoolean(R.styleable.RATabHost_raEnableScrollBar, false);
+				setTabDisableStateColorAlpha(a.getInteger(R.styleable.RATabHost_raTabDisableStateColorAlpha, RATab.DEFAULT_DISABLE_TAB_ALPHA));
+				setTabAccentColor(a.getColor(R.styleable.RATabHost_raTabAccentColor, -1));
+				setTabPrimaryColor(a.getColor(R.styleable.RATabHost_raTabPrimaryColor, RATab.DEFAULT_TAB_PRIMARY_COLOR));
+				setTabSelectorColor(a.getColor(R.styleable.RATabHost_raTabSelectorColor, -1));
+				setTabTextColor(a.getColor(R.styleable.RATabHost_raTabTextColor, -1));
+				setTabImageColorFilter(a.getColor(R.styleable.RATabHost_raTabImageColorFilter, -1));
+				tabTextSizeInPixel = a.getDimensionPixelSize(R.styleable.RATabHost_raTabTextSize, 0);
+			}
+			finally
+			{
+				a.recycle();
+			}
+		}
+		if (tabTextSizeInPixel > 0)
+		{
+			setTabTextSize(0, (float) tabTextSizeInPixel);
+		}
+
+		mScrollTabView.setHorizontalScrollBarEnabled(isEnabledScrollBar);
+		mScrollable = !isEnableScrolling();
+	}
+
+	private void addTabs()
+	{
+		for (RATab tab : mTabList)
+		{
+			mTabHolder.addView(tab.getView(), new LayoutParams(getTabMinWidth(tab), -1));
+		}
+	}
+
+	private void addTabs(int width)
+	{
+		LayoutParams params = new LayoutParams(width / mTabList.size(), -1);
+		for (RATab tab : mTabList)
+		{
+			mTabHolder.addView(tab.getView(), params);
+		}
+	}
+
 	public void removeAllViews()
 	{
 		if (mTabHolder != null)
@@ -479,9 +533,138 @@ public class RATabHost extends FrameLayout
 		}
 	}
 
+	private void refreshView()
+	{
+		new Handler().post(new Runnable()
+		{
+			@Override
+			public void run()
+			{
+				notifyDataSetChanged();
+			}
+		});
+	}
+
+	private int getViewWidth()
+	{
+		int originalWidth = MeasureSpec.getSize(getMeasuredWidth());
+		if (originalWidth > 0)
+		{
+			return originalWidth - (getPaddingLeftRight() * 2);
+		}
+		return -1;
+	}
+
+	private boolean isScrollable()
+	{
+		return mScrollable;
+	}
+
+	private void setScrollable(boolean scrollable)
+	{
+		if (mScrollable != scrollable)
+		{
+			mScrollable = scrollable;
+			if (isScrollable() && sIsTabletLayouts && isEnabledTabletTabNavigation())
+			{
+				mNavigationNextBtn.setVisibility(VISIBLE);
+				mNavigationPreviusBtn.setVisibility(VISIBLE);
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN)
+				{
+					mNavigationNextBtn.setBackground(getBackground());
+					mNavigationPreviusBtn.setBackground(getBackground());
+				}
+				else
+				{
+					mNavigationNextBtn.setBackgroundDrawable(getBackground());
+					mNavigationPreviusBtn.setBackgroundDrawable(getBackground());
+				}
+			}
+			else
+			{
+				mNavigationNextBtn.setVisibility(GONE);
+				mNavigationPreviusBtn.setVisibility(GONE);
+			}
+			setScrollViewPadding();
+		}
+	}
+
+	private boolean canScroll(int viewWidth)
+	{
+		if (viewWidth <= 0)
+		{
+			return false;
+		}
+		int totalWidth = 0;
+		for (RATab tab : mTabList)
+		{
+			int width = tab.getView().getWidth();
+			if (width == 0)
+			{
+				width = getTabMinWidth(tab);
+			}
+			totalWidth += width;
+		}
+		if (totalWidth <= 0 || viewWidth >= totalWidth)
+		{
+			return false;
+		}
+		return true;
+	}
+
+	private void setSelectTab(int tabPosition, boolean enableNotify)
+	{
+		int lastSelectedTabPosition = sSelectedTabPosition;
+		sSelectedTabPosition = tabPosition;
+		if (enableNotify)
+		{
+			RATab currentSelectedTab = getCurrentSelectedTab();
+			if (!(currentSelectedTab == null || currentSelectedTab.getPosition() == tabPosition))
+			{
+				currentSelectedTab.unselect();
+				notifyTabUnselection(currentSelectedTab);
+			}
+		}
+		boolean isValidTabIndex = false;
+		if (tabPosition >= 0 && tabPosition < mTabList.size())
+		{
+			isValidTabIndex = true;
+		}
+		for (RATab tab : mTabList)
+		{
+			if (isValidTabIndex && tab.getPosition() == tabPosition)
+			{
+				boolean isReselectTab = tab.isSelected();
+				if (!isReselectTab)
+				{
+					tab.select();
+				}
+				if (enableNotify)
+				{
+					if (isReselectTab)
+					{
+						notifyTabReselection(tab);
+					}
+					else if (lastSelectedTabPosition != tabPosition)
+					{
+						notifyTabSelection(tab);
+					}
+				}
+			}
+			else
+			{
+				tab.unselect();
+			}
+		}
+		if (isValidTabIndex && isScrollable())
+		{
+			scrollTo(tabPosition);
+		}
+	}
+
 	private int getTabMinWidth(RATab tab)
 	{
-		return round(tab.getMinWidth() + sSpaceBetweenTabs);
+		return round(tab.getMinWidth() + ((float) sSpaceBetweenTabs));
 	}
 
 	private static int round(float value)
@@ -492,47 +675,28 @@ public class RATabHost extends FrameLayout
 	private void scrollTo(int position)
 	{
 		int totalWidth = 0;
-
 		for (RATab tab : mTabList)
 		{
 			if (tab.getPosition() >= position)
 			{
 				break;
 			}
-			else
+			int width = tab.getView().getWidth();
+			if (width == 0)
 			{
-				int width = tab.getView().getWidth();
-
-				if (width == 0)
-				{
-					width = getTabMinWidth(tab);
-				}
-
-				totalWidth += width;
+				width = getTabMinWidth(tab);
 			}
+			totalWidth += width;
 		}
-
 		mScrollTabView.smoothScrollTo(totalWidth, 0);
 	}
 
-	@Override
 	protected void onSizeChanged(int w, int h, int oldw, int oldh)
 	{
 		super.onSizeChanged(w, h, oldw, oldh);
-		if (this.getWidth() != 0 && mTabList.size() != 0)
+		if (getWidth() != 0 && mTabList.size() != 0)
 		{
-			notifyDataSetChanged();
-		}
-	}
-
-	@Override
-	protected void onLayout(boolean changed, int l, int t, int r, int b)
-	{
-		super.onLayout(changed, l, t, r, b);
-		// Ensure first scroll
-		if (changed)
-		{
-			scrollTo(sSelectedTab);
+			refreshView();
 		}
 	}
 
@@ -540,16 +704,20 @@ public class RATabHost extends FrameLayout
 	{
 		if (mScrollTabView != null)
 		{
-			int leftRightPadding = sScrollviewLeftRightPadding;
-
-			if (isScrollable() && sIsTabletLayouts)
-			{
-				leftRightPadding = leftRightPadding + sNavigationViewWidth;
-			}
-
+			int leftRightPadding = getPaddingLeftRight();
 			mScrollTabView.setPadding(leftRightPadding, 0, leftRightPadding, 0);
 			mScrollTabView.setClipToPadding(false);
 		}
+	}
+
+	private int getPaddingLeftRight()
+	{
+		int leftRightPadding = sScrollviewLeftRightPadding;
+		if (isScrollable() && sIsTabletLayouts)
+		{
+			return leftRightPadding + sNavigationViewWidth;
+		}
+		return leftRightPadding;
 	}
 
 	private void notifyTabSelection(RATab tab)
@@ -560,35 +728,21 @@ public class RATabHost extends FrameLayout
 		}
 	}
 
-	private OnClickListener mOnNavigationButtonClickListener = new OnClickListener()
+	private void notifyTabUnselection(RATab tab)
 	{
-		@Override
-		public void onClick(final View view)
+		if (mTabSelectedListener != null)
 		{
-			RATab tab = getCurrentSelectedTab();
-			if (tab != null)
-			{
-				int position = tab.getPosition();
-
-				if (view.getId() == R.id.ib_tabhost_navigation_next)
-				{
-					if (position < mTabList.size() - 1)
-					{
-						position++;
-						setSelectTab(position);
-					}
-				}
-				else if (view.getId() == R.id.ib_tabhost_navigation_previous)
-				{
-					if (position > 0)
-					{
-						position--;
-						setSelectTab(position);
-					}
-				}
-			}
+			mTabSelectedListener.onTabUnselected(tab);
 		}
-	};
+	}
+
+	private void notifyTabReselection(RATab tab)
+	{
+		if (mTabSelectedListener != null)
+		{
+			mTabSelectedListener.onTabReselected(tab);
+		}
+	}
 
 	private RATab.OnTabTouchListener mOnTabTouchListener = new RATab.OnTabTouchListener()
 	{
@@ -597,11 +751,35 @@ public class RATabHost extends FrameLayout
 		{
 			if (tab.isSelected())
 			{
-				notifyTabSelection(tab);
+				RATabHost.this.notifyTabReselection(tab);
 			}
 			else
 			{
-				setSelectTab(tab.getPosition());
+				RATabHost.this.setSelectTab(tab.getPosition());
+			}
+		}
+	};
+
+	private OnClickListener mOnNavigationButtonClickListener = new View.OnClickListener()
+	{
+		@Override
+		public void onClick(final View view)
+		{
+			RATab tab = getCurrentSelectedTab();
+			if (tab != null)
+			{
+				int position = tab.getPosition();
+				if (view.getId() == R.id.ib_tabhost_navigation_next)
+				{
+					if (position < mTabList.size() - 1)
+					{
+						setSelectTab(position + 1);
+					}
+				}
+				else if (view.getId() == R.id.ib_tabhost_navigation_previous && position > 0)
+				{
+					setSelectTab(position - 1);
+				}
 			}
 		}
 	};

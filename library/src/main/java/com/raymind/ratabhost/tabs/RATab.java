@@ -25,47 +25,62 @@ public abstract class RATab
 		void onTouch(RATab tab, Point touchedPoint);
 	}
 
-	// 60% alpha
 	public static final int DEFAULT_DISABLE_TAB_ALPHA = 0x99;
 	public static final int DEFAULT_TAB_ACCENT_COLOR = Color.WHITE;
 	public static final int DEFAULT_TAB_PRIMARY_COLOR = Color.parseColor("#3F51B5");
 
-	private View mRootView;
-	private View mSelectorBottomLineView;
-
 	private int mPosition;
 	private boolean mSelected;
-
-	private int mDisableStateColorAlpha;
+	private boolean mEnableSelector;
 
 	private ColorStateList mAccentColor;
 	private ColorStateList mPrimaryColor;
+	private ColorStateList mSelectorColor;
 
+	private int mDisableStateColorAlpha;
+
+	private View mRootView;
+	private View mSelectorBottomLineView;
 	private ArrayList<WeakReference<OnTabTouchListener>> mTouchListeners;
 
 	public RATab(Context context, OnTabTouchListener touchListener, @LayoutRes int tabLayoutResource)
 	{
-		mTouchListeners = new ArrayList<WeakReference<OnTabTouchListener>>();
-
+		mTouchListeners = new ArrayList();
 		mRootView = LayoutInflater.from(context).inflate(tabLayoutResource, null);
 		mSelectorBottomLineView = mRootView.findViewById(R.id.v_selector);
-
 		mRootView.setOnTouchListener(mOnTouchListener);
+		setEnableSelector(true);
 
-		setDisableStateColorAlpha(RATab.DEFAULT_DISABLE_TAB_ALPHA);
-		setAccentColor(RATab.DEFAULT_TAB_ACCENT_COLOR);
-		setPrimaryColor(RATab.DEFAULT_TAB_PRIMARY_COLOR);
+		setDisableStateColorAlpha(DEFAULT_DISABLE_TAB_ALPHA);
+
+		setAccentColor(DEFAULT_TAB_ACCENT_COLOR);
+		setPrimaryColor(DEFAULT_TAB_PRIMARY_COLOR);
+		setSelectorColor(DEFAULT_TAB_ACCENT_COLOR);
 
 		addTabTouchListener(touchListener);
 
 		mSelected = false;
 	}
 
-	public void addTabTouchListener(final OnTabTouchListener tabTouchListener)
+	public void addTabTouchListener(OnTabTouchListener tabTouchListener)
 	{
 		if (tabTouchListener != null)
 		{
-			mTouchListeners.add(new WeakReference<OnTabTouchListener>(tabTouchListener));
+			mTouchListeners.add(new WeakReference(tabTouchListener));
+		}
+	}
+
+	private boolean isEnableSelector()
+	{
+		return mEnableSelector;
+	}
+
+	public void setEnableSelector(boolean enableSelector)
+	{
+		mEnableSelector = enableSelector;
+		if (mSelectorBottomLineView != null)
+		{
+			mSelectorBottomLineView.setVisibility(isEnableSelector() ? View.VISIBLE : View.GONE);
 		}
 	}
 
@@ -92,14 +107,14 @@ public abstract class RATab
 
 	public void setAccentColor(ColorStateList color)
 	{
-		if (mAccentColor != null && mAccentColor.equals(color))
+		if (mAccentColor == null || !mAccentColor.equals(color))
 		{
-			return;
+			if (color == null)
+			{
+				color = ColorStateList.valueOf(DEFAULT_TAB_ACCENT_COLOR);
+			}
+			mAccentColor = color;
 		}
-
-		mAccentColor = (color != null) ? color : ColorStateList.valueOf(RATab.DEFAULT_TAB_ACCENT_COLOR);
-
-		setTabAccentColor(mAccentColor);
 	}
 
 	@ColorInt
@@ -115,30 +130,58 @@ public abstract class RATab
 
 	public void setPrimaryColor(ColorStateList color)
 	{
-		if (mPrimaryColor != null && mPrimaryColor.equals(color))
+		if (mPrimaryColor == null || !mPrimaryColor.equals(color))
 		{
-			return;
+			if (color == null)
+			{
+				color = ColorStateList.valueOf(DEFAULT_TAB_PRIMARY_COLOR);
+			}
+			mPrimaryColor = color;
+			if (mRootView != null)
+			{
+				mRootView.setBackgroundColor(getPrimaryColor());
+			}
 		}
+	}
 
-		mPrimaryColor = (color != null) ? color : ColorStateList.valueOf(RATab.DEFAULT_TAB_PRIMARY_COLOR);
+	@ColorInt
+	public int getSelectorColor()
+	{
+		return mSelectorColor.getDefaultColor();
+	}
 
-		if (mRootView != null)
+	public void setSelectorColor(@ColorInt int color)
+	{
+		setSelectorColor(ColorStateList.valueOf(color));
+	}
+
+	public void setSelectorColor(ColorStateList color)
+	{
+		if (mSelectorColor == null || !mSelectorColor.equals(color))
 		{
-			mRootView.setBackgroundColor(getPrimaryColor());
+			if (color == null)
+			{
+				color = ColorStateList.valueOf(getAccentColor());
+			}
+			mSelectorColor = color;
+			if (isSelected())
+			{
+				setSelectorBottomLineColor(getSelectorColor());
+			}
 		}
 	}
 
 	public void unselect()
 	{
 		unselectTab();
-		setSelectorColor(Color.TRANSPARENT);
+		setSelectorBottomLineColor(Color.TRANSPARENT);
 		mSelected = false;
 	}
 
 	public void select()
 	{
 		selectTab();
-		setSelectorColor(getAccentColor());
+		setSelectorBottomLineColor(getSelectorColor());
 		mSelected = true;
 	}
 
@@ -164,12 +207,12 @@ public abstract class RATab
 
 	public void setPosition(int position)
 	{
-		this.mPosition = position;
+		mPosition = position;
 	}
 
-	private void setSelectorColor(@ColorInt int color)
+	private void setSelectorBottomLineColor(@ColorInt int color)
 	{
-		if (mSelectorBottomLineView != null)
+		if (mSelectorBottomLineView != null && mSelectorBottomLineView.getVisibility() == View.VISIBLE)
 		{
 			mSelectorBottomLineView.setBackgroundColor(color);
 		}
@@ -178,7 +221,7 @@ public abstract class RATab
 	private View.OnTouchListener mOnTouchListener = new View.OnTouchListener()
 	{
 		@Override
-		public boolean onTouch(View v, MotionEvent event)
+		public boolean onTouch(final View v, final MotionEvent event)
 		{
 			final Point lastTouchedPoint = new Point();
 			lastTouchedPoint.x = (int) event.getX();
@@ -194,7 +237,6 @@ public abstract class RATab
 			{
 				return true;
 			}
-
 			// new effects
 			if (event.getAction() == MotionEvent.ACTION_UP)
 			{
@@ -217,12 +259,9 @@ public abstract class RATab
 
 	protected abstract RATab getTab();
 
-	protected abstract void unselectTab();
+	protected abstract float getTabMinWidth();
 
 	protected abstract void selectTab();
 
-	protected abstract float getTabMinWidth();
-
-	protected abstract void setTabAccentColor(ColorStateList color);
-
+	protected abstract void unselectTab();
 }

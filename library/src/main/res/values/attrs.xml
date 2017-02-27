@@ -3,12 +3,18 @@
 
     <declare-styleable name="RATabHost">
 
-        <attr name="raTabDisableStateColorAlpha" format="integer"/>
-        <attr name="raTabPrimaryColor" format="color"/>
-        <attr name="raTabAccentColor" format="color"/>
-        <attr name="raTabImageColorFilter" format="color"/>
-        <attr name="raTabTextColor" format="color"/>
-        <attr name="raTabTextSize" format="dimension"/>
+        <attr name="raEnableScrolling" format="boolean" />
+        <attr name="raAutoEnableScrolling" format="boolean" />
+        <attr name="raEnableScrollBar" format="boolean" />
+        <attr name="raEnableTabletTabNavigation" format="boolean" />
+        <attr name="raEnableTabSelector" format="boolean" />
+        <attr name="raTabDisableStateColorAlpha" format="integer" />
+        <attr name="raTabPrimaryColor" format="color" />
+        <attr name="raTabAccentColor" format="color" />
+        <attr name="raTabSelectorColor" format="color" />
+        <attr name="raTabImageColorFilter" format="color" />
+        <attr name="raTabTextColor" format="color" />
+        <attr name="raTabTextSize" format="dimension" />
 
     </declare-styleable>
 
