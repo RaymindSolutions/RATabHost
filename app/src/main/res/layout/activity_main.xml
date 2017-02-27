@@ -1,24 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout
+<FrameLayout
     android:id="@+id/activity_main"
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="com.raymind.ratabhost.example.MainActivity">
 
-    <com.raymind.ratabhost.RATabHost
-        android:id="@+id/ra_tabhost"
-        xmlns:app="http://schemas.android.com/apk/res-auto"
+    <at.markushi.ui.RevealColorView
+        android:id="@+id/reveal"
         android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:background="@color/colorPrimary"
-        app:raTabAccentColor="@color/colorAccent"
-        app:raTabDisableStateColorAlpha="99"
-        app:raTabImageColorFilter="@color/colorAccent"
-        app:raTabPrimaryColor="@color/colorPrimary"
-        app:raTabTextColor="@android:color/white"
-        app:raTabTextSize="14sp"
-    />
+        android:layout_height="248dp"
+        android:background="#212121"/>
 
-</RelativeLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:minHeight="200dp"
+            android:text="@string/app_name"
+            android:textSize="22sp"/>
+
+        <com.raymind.ratabhost.RATabHost
+            android:id="@+id/ra_tabhost"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="#77000000"
+            app:raAutoEnableScrolling="true"
+            app:raEnableScrolling="true"
+            app:raTabDisableStateColorAlpha="180"
+            app:raTabImageColorFilter="@android:color/white"
+            app:raTabPrimaryColor="#00000000"
+            app:raTabSelectorColor="@color/colorAccent"
+            app:raTabTextColor="@android:color/white"
+            app:raTabTextSize="14sp"/>
+    </LinearLayout>
+
+</FrameLayout>
