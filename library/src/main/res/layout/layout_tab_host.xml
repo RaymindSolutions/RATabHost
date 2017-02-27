@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+             android:layout_width="match_parent"
+             android:layout_height="match_parent">
+
+    <HorizontalScrollView
+        android:id="@+id/hsv_tabhost_scrollview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:overScrollMode="never"
+        android:scrollbars="horizontal">
+
+        <LinearLayout
+            android:id="@+id/ll_tabhost_tabholder"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_gravity="left|center_vertical"
+            android:orientation="horizontal"/>
+
+    </HorizontalScrollView>
+
+    <ImageButton
+        android:id="@+id/ib_tabhost_navigation_previous"
+        android:layout_width="@dimen/tabhost_navigation_previous_next_view_width"
+        android:layout_height="match_parent"
+        android:layout_gravity="left|center_vertical"
+        android:src="@drawable/ic_left_arrow_outline_white_24dp"
+        android:visibility="visible"
+        />
+
+    <ImageButton
+        android:id="@+id/ib_tabhost_navigation_next"
+        android:layout_width="@dimen/tabhost_navigation_previous_next_view_width"
+        android:layout_height="match_parent"
+        android:layout_gravity="right|center_vertical"
+        android:src="@drawable/ic_right_arrow_outline_white_24dp"
+        android:visibility="visible"/>
+
+</FrameLayout>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+             android:layout_width="match_parent"
+             android:layout_height="match_parent"
+             android:minHeight="@dimen/image_tab_min_height">
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center">
+
+        <ImageView
+            android:id="@+id/iv_tab_icon"
+            android:layout_width="@dimen/tab_image_view_width"
+            android:layout_height="@dimen/selector_view_height"/>
+
+    </FrameLayout>
+
+    <include layout="@layout/merge_selector_bottom_line"/>
+
+</FrameLayout>

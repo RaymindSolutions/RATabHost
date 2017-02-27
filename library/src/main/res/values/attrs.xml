@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <declare-styleable name="RATabHost">
+
+        <attr name="raTabDisableStateColorAlpha" format="integer"/>
+        <attr name="raTabPrimaryColor" format="color"/>
+        <attr name="raTabAccentColor" format="color"/>
+        <attr name="raTabImageColorFilter" format="color"/>
+        <attr name="raTabTextColor" format="color"/>
+        <attr name="raTabTextSize" format="dimension"/>
+
+    </declare-styleable>
+
+</resources>
