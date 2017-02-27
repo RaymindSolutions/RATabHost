@@ -5,14 +5,20 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:paddingBottom="@dimen/activity_vertical_margin"
-    android:paddingLeft="@dimen/activity_horizontal_margin"
-    android:paddingRight="@dimen/activity_horizontal_margin"
-    android:paddingTop="@dimen/activity_vertical_margin"
-    tools:context="com.raymind.ratabhost.MainActivity">
+    tools:context="com.raymind.ratabhost.example.MainActivity">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Hello World!"/>
+    <com.raymind.ratabhost.RATabHost
+        android:id="@+id/ra_tabhost"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:background="@color/colorPrimary"
+        app:raTabAccentColor="@color/colorAccent"
+        app:raTabDisableStateColorAlpha="99"
+        app:raTabImageColorFilter="@color/colorAccent"
+        app:raTabPrimaryColor="@color/colorPrimary"
+        app:raTabTextColor="@android:color/white"
+        app:raTabTextSize="14sp"
+    />
+
 </RelativeLayout>
